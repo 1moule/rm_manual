@@ -27,6 +27,7 @@ ChassisGimbalShooterManual::ChassisGimbalShooterManual(ros::NodeHandle& nh) : Ch
   q_event_.setRising(boost::bind(&ChassisGimbalShooterManual::qPress, this));
   f_event_.setRising(boost::bind(&ChassisGimbalShooterManual::fPress, this));
   b_event_.setRising(boost::bind(&ChassisGimbalShooterManual::bPress, this));
+  z_event.setRising(boost::bind(&ChassisGimbalShooterManual::ZPress, this));
   ctrl_c_event_.setRising(boost::bind(&ChassisGimbalShooterManual::ctrlCPress, this));
   ctrl_v_event_.setRising(boost::bind(&ChassisGimbalShooterManual::ctrlVPress, this));
   ctrl_r_event_.setRising(boost::bind(&ChassisGimbalShooterManual::ctrlRPress, this));
@@ -374,4 +375,21 @@ void ChassisGimbalShooterManual::ctrlBPress()
   switch_detection_srv_->callService();
 }
 
+void ChassisGimbalShooterManual::ZPress()
+{
+  gimbal_cmd_sender_->setMode(rm_msgs::GimbalCmd::DIRECT);
+  geometry_msgs::PointStamped pos;
+  pos.header.frame_id = "base_link";
+  pos.point.x = 1.;
+  pos.point.y = 0.;
+  try
+  {
+    pos.point.z = tf_buffer_.lookupTransform("base_link", "pitch", ros::Time(0)).transform.translation.z;
+  }
+  catch (tf2::TransformException& ex)
+  {
+    ROS_WARN("%s", ex.what());
+  }
+  gimbal_cmd_sender_->setpos(pos);
+}
 }  // namespace rm_manual
