@@ -98,6 +98,8 @@ void ChassisGimbalShooterCoverManual::sendCommand(const ros::Time& time)
       shooter_cmd_sender_->checkError(ros::Time::now());
     }
   }
+  else
+    gimbal_cmd_sender_->setMode(rm_msgs::GimbalCmd::RATE);
   ChassisGimbalShooterManual::sendCommand(time);
   cover_command_sender_->sendCommand(time);
 }
