@@ -66,48 +66,36 @@ void ChassisGimbalShooterCoverManual::checkKeyboard(const rm_msgs::DbusData::Con
 
 void ChassisGimbalShooterCoverManual::sendCommand(const ros::Time& time)
 {
-  if (supply_)
+  if (is_auto_)
   {
-    chassis_cmd_sender_->getMsg()->follow_source_frame = supply_frame_;
-    chassis_cmd_sender_->setMode(rm_msgs::ChassisCmd::FOLLOW);
-    cover_close_ = false;
-    try
+    if (track_data_.id == 0)
     {
-      double roll, pitch, yaw;
-      quatToRPY(tf_buffer_.lookupTransform("base_link", supply_frame_, ros::Time(0)).transform.rotation, roll, pitch,
-                yaw);
-      if (std::abs(yaw) < 0.05)
-        cover_command_sender_->on();
-    }
-    catch (tf2::TransformException& ex)
-    {
-      ROS_WARN("%s", ex.what());
-    }
-  }
-  else
-  {
-    cover_command_sender_->off();
-    if (!cover_close_)
-    {
+      geometry_msgs::PointStamped point_in, point_out;
       try
       {
-        double roll, pitch, yaw;
-        quatToRPY(tf_buffer_.lookupTransform("base_link", "cover", ros::Time(0)).transform.rotation, roll, pitch, yaw);
-        if (pitch - cover_command_sender_->getMsg()->data > 0.05)
-        {
-          chassis_cmd_sender_->getMsg()->follow_source_frame = supply_frame_;
-          chassis_cmd_sender_->setMode(rm_msgs::ChassisCmd::FOLLOW);
-        }
-        else
-        {
-          cover_close_ = true;
-          chassis_cmd_sender_->getMsg()->follow_source_frame = "yaw";
-        }
+        point_in.header.frame_id = "yaw";
+        point_in.point.z = tf_buffer_.lookupTransform("yaw", "pitch", ros::Time(0)).transform.translation.z +
+                           (0.25 * sin(12 * M_PI * count_ / 100) - 0.1);
+        tf2::doTransform(point_in, point_out, tf_buffer_.lookupTransform("odom", "yaw", ros::Time(0)));
+        point_out.point.x = cos(2 * M_PI * count_ / 100) +
+                            tf_buffer_.lookupTransform("odom", "yaw", ros::Time(0)).transform.translation.x;
+        point_out.point.y = sin(2 * M_PI * count_ / 100) +
+                            tf_buffer_.lookupTransform("odom", "yaw", ros::Time(0)).transform.translation.y;
+        count_ = (count_ + 1) % 100;
       }
       catch (tf2::TransformException& ex)
       {
         ROS_WARN("%s", ex.what());
       }
+      gimbal_cmd_sender_->setMode(rm_msgs::GimbalCmd::DIRECT);
+      gimbal_cmd_sender_->setPoint(point_out);
+    }
+    else
+    {
+      gimbal_cmd_sender_->setMode(rm_msgs::GimbalCmd::TRACK);
+      gimbal_cmd_sender_->setBulletSpeed(shooter_cmd_sender_->getSpeed());
+      shooter_cmd_sender_->setMode(rm_msgs::ShootCmd::PUSH);
+      shooter_cmd_sender_->checkError(ros::Time::now());
     }
   }
   ChassisGimbalShooterManual::sendCommand(time);
@@ -134,17 +122,29 @@ void ChassisGimbalShooterCoverManual::rightSwitchUpRise()
 
 void ChassisGimbalShooterCoverManual::rPress()
 {
-  if (switch_buff_srv_->getTarget() != rm_msgs::StatusChangeRequest::ARMOR)
+  if (!is_auto_)
   {
-    chassis_cmd_sender_->power_limit_->updateState(rm_common::PowerLimit::CHARGE);
-    if (switch_buff_type_srv_->getTarget() == rm_msgs::StatusChangeRequest::SMALL_BUFF)
-      switch_buff_type_srv_->setTargetType(rm_msgs::StatusChangeRequest::BIG_BUFF);
+    count_ = 0;
+    last_gyro_state_ = is_gyro_;
+    is_auto_ = true;
+    is_gyro_ = true;
+    chassis_cmd_sender_->setMode(rm_msgs::ChassisCmd::RAW);
+    chassis_cmd_sender_->power_limit_->updateState(rm_common::PowerLimit::NORMAL);
+    if (x_scale_ != 0.0 || y_scale_ != 0.0)
+      vel_cmd_sender_->setAngularZVel(gyro_rotate_reduction_);
     else
-      switch_buff_type_srv_->setTargetType(rm_msgs::StatusChangeRequest::SMALL_BUFF);
-    switch_buff_type_srv_->callService();
+      vel_cmd_sender_->setAngularZVel(1.0);
   }
   else
-    chassis_cmd_sender_->power_limit_->updateState(rm_common::PowerLimit::NORMAL);
+  {
+    is_auto_ = false;
+    if (!last_gyro_state_)
+    {
+      chassis_cmd_sender_->setMode(rm_msgs::ChassisCmd::FOLLOW);
+      vel_cmd_sender_->setAngularZVel(0.0);
+      is_gyro_ = false;
+    }
+  }
 }
 
 void ChassisGimbalShooterCoverManual::ePress()

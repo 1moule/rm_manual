@@ -50,5 +50,8 @@ protected:
   ros::Time last_switch_time_;
   bool supply_ = false;
   bool cover_close_ = true;
+  bool last_gyro_state_ = false;
+  bool is_auto_ = false;
+  int count_{};
 };
 }  // namespace rm_manual
