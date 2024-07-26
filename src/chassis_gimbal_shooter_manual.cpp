@@ -284,6 +284,7 @@ void ChassisGimbalShooterManual::rightSwitchMidRise()
 {
   ChassisGimbalManual::rightSwitchMidRise();
   chassis_cmd_sender_->power_limit_->updateState(rm_common::PowerLimit::BURST);
+  shooter_cmd_sender_->setShootFrequency(rm_common::HeatLimit::MINIMAL);
   shooter_cmd_sender_->setMode(rm_msgs::ShootCmd::STOP);
 }
 
@@ -291,6 +292,7 @@ void ChassisGimbalShooterManual::rightSwitchUpRise()
 {
   ChassisGimbalManual::rightSwitchUpRise();
   chassis_cmd_sender_->power_limit_->updateState(rm_common::PowerLimit::CHARGE);
+  shooter_cmd_sender_->setShootFrequency(rm_common::HeatLimit::LOW);
   shooter_cmd_sender_->setMode(rm_msgs::ShootCmd::STOP);
 }
 
@@ -335,7 +337,7 @@ void ChassisGimbalShooterManual::leftSwitchUpOn(ros::Duration duration)
     gimbal_cmd_sender_->setMode(rm_msgs::GimbalCmd::TRACK);
   if (duration > ros::Duration(1.))
   {
-    shooter_cmd_sender_->setShootFrequency(last_shoot_freq_);
+    shooter_cmd_sender_->setShootFrequency(rm_common::HeatLimit::LOW);
     shooter_cmd_sender_->setMode(rm_msgs::ShootCmd::PUSH);
     shooter_cmd_sender_->checkError(ros::Time::now());
   }
