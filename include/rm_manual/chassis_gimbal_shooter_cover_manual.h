@@ -33,7 +33,7 @@ protected:
   void cPress() override;
   void zPress();
   void zRelease();
-  void ctrlRPressing();
+  void ctrlRPress() override;
   void ctrlRRelease() override;
   void wPress() override;
   void wPressing() override;
@@ -50,6 +50,9 @@ protected:
   {
     gimbal_cmd_sender_->setMode(rm_msgs::GimbalCmd::RATE);
   };
+  void jointStateCallback(const sensor_msgs::JointState::ConstPtr& data) override;
+  double calculateMean(const std::vector<double>& efforts);
+
   double low_speed_scale_{}, normal_speed_scale_{};
   double exit_buff_mode_duration_{};
   double gyro_speed_limit_{};
@@ -63,6 +66,16 @@ protected:
   ros::Time last_switch_time_;
   bool supply_ = false;
   bool cover_close_ = true;
-  int count_{};
+
+  std::vector<double> forward_efforts;
+  std::vector<double> backward_efforts;
+  std::vector<std::pair<double, double>> friction_results;
+  bool start_identify_ = false;
+  ros::Time last_time;
+  double current_velocity;
+  double max_velocity;
+  double vel_step;
+  double angle;
+  int direction;
 };
 }  // namespace rm_manual

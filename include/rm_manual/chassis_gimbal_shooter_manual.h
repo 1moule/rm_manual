@@ -106,7 +106,7 @@ protected:
   }
   void ctrlVPress();
   void ctrlBPress();
-  void ctrlRPress();
+  virtual void ctrlRPress();
   virtual void ctrlRRelease();
   virtual void ctrlQPress();
 

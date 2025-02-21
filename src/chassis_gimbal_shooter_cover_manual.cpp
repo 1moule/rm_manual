@@ -29,9 +29,16 @@ ChassisGimbalShooterCoverManual::ChassisGimbalShooterCoverManual(ros::NodeHandle
   sin_gyro_period_ = vel_nh.param("sin_gyro_period", 1.0);
   sin_gyro_phase_ = vel_nh.param("sin_gyro_phase", 0.0);
 
+  last_time = ros::Time::now();
+  current_velocity = 0.5;
+  max_velocity = 8.0;
+  vel_step = 0.5;
+  angle = -M_PI;
+  direction = 1;
+
   ctrl_z_event_.setEdge(boost::bind(&ChassisGimbalShooterCoverManual::ctrlZPress, this),
                         boost::bind(&ChassisGimbalShooterCoverManual::ctrlZRelease, this));
-  ctrl_r_event_.setActiveHigh(boost::bind(&ChassisGimbalShooterCoverManual::ctrlRPressing, this));
+  //  ctrl_r_event_.setActiveHigh(boost::bind(&ChassisGimbalShooterCoverManual::ctrlRPressing, this));
   z_event_.setEdge(boost::bind(&ChassisGimbalShooterCoverManual::zPress, this),
                    boost::bind(&ChassisGimbalShooterCoverManual::zRelease, this));
 }
@@ -124,50 +131,42 @@ void ChassisGimbalShooterCoverManual::checkKeyboard(const rm_msgs::DbusData::Con
 
 void ChassisGimbalShooterCoverManual::sendCommand(const ros::Time& time)
 {
-  if (supply_)
+  if (start_identify_)
   {
-    chassis_cmd_sender_->getMsg()->follow_source_frame = supply_frame_;
-    chassis_cmd_sender_->setMode(rm_msgs::ChassisCmd::FOLLOW);
-    cover_close_ = false;
-    try
+    ros::Time current_time = ros::Time::now();
+    double elapsed_time = (current_time - last_time).toSec();
+    last_time = current_time;
+    angle += direction * current_velocity * elapsed_time;
+
+    if (direction == 1 && angle >= M_PI)
     {
-      double roll, pitch, yaw;
-      quatToRPY(tf_buffer_.lookupTransform("base_link", supply_frame_, ros::Time(0)).transform.rotation, roll, pitch,
-                yaw);
-      if (std::abs(yaw) < 0.05)
-        cover_command_sender_->on();
+      angle = M_PI;
+      direction = -1;
+      ROS_INFO("Completed forward motion at velocity: %f", current_velocity);
     }
-    catch (tf2::TransformException& ex)
+    else if (direction == -1 && angle <= -M_PI)
     {
-      ROS_WARN("%s", ex.what());
+      angle = -M_PI;
+      direction = 1;
+      double mean_forward = calculateMean(forward_efforts);
+      double mean_backward = calculateMean(backward_efforts);
+      double friction = (mean_forward - mean_backward) / 2.0;
+      friction_results.push_back(std::make_pair(current_velocity, friction));
+      forward_efforts.clear();
+      backward_efforts.clear();
+      ROS_INFO("Velocity: %f, Friction: %f", current_velocity, friction);
+      if (current_velocity < max_velocity)
+        current_velocity += vel_step;
+      else
+        start_identify_ = false;
     }
+
+    gimbal_cmd_sender_->setGimbalTraj(0., 0.);
+    vel_cmd_sender_->setAngularZVel(-direction * current_velocity);
   }
   else
-  {
-    cover_command_sender_->off();
-    if (!cover_close_)
-    {
-      try
-      {
-        double roll, pitch, yaw;
-        quatToRPY(tf_buffer_.lookupTransform("base_link", "cover", ros::Time(0)).transform.rotation, roll, pitch, yaw);
-        if (pitch - cover_command_sender_->getMsg()->data > 0.05)
-        {
-          chassis_cmd_sender_->getMsg()->follow_source_frame = supply_frame_;
-          chassis_cmd_sender_->setMode(rm_msgs::ChassisCmd::FOLLOW);
-        }
-        else
-        {
-          cover_close_ = true;
-          chassis_cmd_sender_->getMsg()->follow_source_frame = "yaw";
-        }
-      }
-      catch (tf2::TransformException& ex)
-      {
-        ROS_WARN("%s", ex.what());
-      }
-    }
-  }
+    vel_cmd_sender_->setAngularZVel(0.);
+  //    gimbal_cmd_sender_->setMode(rm_msgs::GimbalCmd::RATE);
   ChassisGimbalShooterManual::sendCommand(time);
   cover_command_sender_->sendCommand(time);
 }
@@ -329,35 +328,46 @@ void ChassisGimbalShooterCoverManual::ctrlZPress()
   }
 }
 
-void ChassisGimbalShooterCoverManual::ctrlRPressing()
+void ChassisGimbalShooterCoverManual::ctrlRPress()
 {
-  if (!is_gyro_)
-  {
-    chassis_cmd_sender_->power_limit_->updateState(rm_common::PowerLimit::NORMAL);
-    setChassisMode(rm_msgs::ChassisCmd::RAW);
-  }
-  if (track_data_.id == 0)
-  {
-    gimbal_cmd_sender_->setMode(rm_msgs::GimbalCmd::TRAJ);
-    double traj_yaw = M_PI * count_ / 1000;
-    double traj_pitch = 0.15 * sin(2 * M_PI * (count_ % 1100) / 1100) + 0.15;
-    count_++;
-    gimbal_cmd_sender_->setGimbalTraj(traj_yaw, traj_pitch);
-    shooter_cmd_sender_->setMode(rm_msgs::ShootCmd::READY);
-  }
-  else
-  {
-    gimbal_cmd_sender_->setMode(rm_msgs::GimbalCmd::TRACK);
-    shooter_cmd_sender_->setMode(rm_msgs::ShootCmd::PUSH);
-    shooter_cmd_sender_->checkError(ros::Time::now());
-  }
+  start_identify_ = true;
+  last_time = ros::Time::now();
+  current_velocity = 0.5;
+  max_velocity = 8.0;
+  vel_step = 0.5;
+  angle = -M_PI;
+  direction = 1;
+  gimbal_cmd_sender_->setMode(rm_msgs::GimbalCmd::TRAJ);
+  chassis_cmd_sender_->setMode(rm_msgs::ChassisCmd::RAW);
 }
 
 void ChassisGimbalShooterCoverManual::ctrlRRelease()
 {
-  count_ = 0;
-  gimbal_cmd_sender_->setMode(rm_msgs::GimbalCmd::RATE);
-  shooter_cmd_sender_->setMode(rm_msgs::ShootCmd::READY);
+  //  count_ = 0;
+  //  start_identify_ = false;
+  //  gimbal_cmd_sender_->setMode(rm_msgs::GimbalCmd::RATE);
+  //  shooter_cmd_sender_->setMode(rm_msgs::ShootCmd::READY);
+}
+
+void ChassisGimbalShooterCoverManual::jointStateCallback(const sensor_msgs::JointState::ConstPtr& data)
+{
+  if (start_identify_)
+  {
+    if (direction == 1)
+      forward_efforts.push_back(data->effort[9]);
+    else
+      backward_efforts.push_back(data->effort[9]);
+  }
+}
+
+double ChassisGimbalShooterCoverManual::calculateMean(const std::vector<double>& efforts)
+{
+  double sum = 0.0;
+  for (size_t i = 0; i < efforts.size(); ++i)
+  {
+    sum += efforts[i];
+  }
+  return efforts.empty() ? 0.0 : sum / efforts.size();
 }
 
 }  // namespace rm_manual
