@@ -21,7 +21,6 @@ ChassisGimbalShooterCoverManual::ChassisGimbalShooterCoverManual(ros::NodeHandle
   ros::NodeHandle chassis_nh(nh, "chassis");
   normal_speed_scale_ = chassis_nh.param("normal_speed_scale", 1);
   low_speed_scale_ = chassis_nh.param("low_speed_scale", 0.30);
-  nh.param("exit_buff_mode_duration", exit_buff_mode_duration_, 0.5);
   nh.param("gyro_speed_limit", gyro_speed_limit_, 6.0);
   ros::NodeHandle vel_nh(nh, "vel");
   sin_gyro_base_scale_ = vel_nh.param("sin_gyro_base_scale", 1.0);
@@ -35,7 +34,6 @@ ChassisGimbalShooterCoverManual::ChassisGimbalShooterCoverManual(ros::NodeHandle
   e_event_.setEdge(boost::bind(&ChassisGimbalShooterCoverManual::ePress, this),
                    boost::bind(&ChassisGimbalShooterCoverManual::eRelease, this));
   q_event_.setRising(boost::bind(&ChassisGimbalShooterCoverManual::qPress, this));
-  z_event_.setRising(boost::bind(&ChassisGimbalShooterCoverManual::zPress, this));
 }
 
 void ChassisGimbalShooterCoverManual::changeSpeedMode(SpeedMode speed_mode)
@@ -244,28 +242,9 @@ void ChassisGimbalShooterCoverManual::qPress()
   chassis_cmd_sender_->power_limit_->updateState(rm_common::PowerLimit::NORMAL);
 }
 
-void ChassisGimbalShooterCoverManual::wPress()
-{
-  ChassisGimbalShooterManual::wPress();
-  if (switch_buff_srv_->getTarget() != rm_msgs::StatusChangeRequest::ARMOR)
-    last_switch_time_ = ros::Time::now();
-}
-
 void ChassisGimbalShooterCoverManual::wPressing()
 {
   ChassisGimbalShooterManual::wPressing();
-  if ((ros::Time::now() - last_switch_time_).toSec() > exit_buff_mode_duration_ &&
-      switch_buff_srv_->getTarget() != rm_msgs::StatusChangeRequest::ARMOR)
-  {
-    switch_buff_srv_->setTargetType(rm_msgs::StatusChangeRequest::ARMOR);
-    switch_detection_srv_->setTargetType(rm_msgs::StatusChangeRequest::ARMOR);
-    switch_buff_type_srv_->setTargetType(switch_buff_srv_->getTarget());
-    switch_exposure_srv_->setTargetType(rm_msgs::StatusChangeRequest::ARMOR);
-    switch_buff_srv_->callService();
-    switch_detection_srv_->callService();
-    switch_buff_type_srv_->callService();
-    switch_exposure_srv_->callService();
-  }
   if (switch_buff_srv_->getTarget() != rm_msgs::StatusChangeRequest::ARMOR)
     vel_cmd_sender_->setAngularZVel(is_gyro_ ? gyro_rotate_reduction_ : 0, gyro_speed_limit_);
 }

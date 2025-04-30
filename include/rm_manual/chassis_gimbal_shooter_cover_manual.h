@@ -36,7 +36,6 @@ protected:
   void qPress() override;
   void ctrlRPressing();
   void ctrlRRelease() override;
-  void wPress() override;
   void wPressing() override;
   void aPressing() override;
   void sPressing() override;
@@ -45,9 +44,6 @@ protected:
   void aRelease() override;
   void sRelease() override;
   void dRelease() override;
-  void zPress() override
-  {
-  }
 
   virtual void ctrlZPress();
   virtual void ctrlZRelease()
@@ -55,16 +51,14 @@ protected:
     gimbal_cmd_sender_->setMode(rm_msgs::GimbalCmd::RATE);
   };
   double low_speed_scale_{}, normal_speed_scale_{};
-  double exit_buff_mode_duration_{};
   double gyro_speed_limit_{};
   double sin_gyro_base_scale_{ 1. }, sin_gyro_amplitude_{ 0. }, sin_gyro_period_{ 1. }, sin_gyro_phase_{ 0. };
   rm_common::SwitchDetectionCaller* switch_buff_srv_{};
   rm_common::SwitchDetectionCaller* switch_buff_type_srv_{};
   rm_common::SwitchDetectionCaller* switch_exposure_srv_{};
   rm_common::JointPositionBinaryCommandSender* cover_command_sender_{};
-  InputEvent ctrl_z_event_, z_event_;
+  InputEvent ctrl_z_event_;
   std::string supply_frame_;
-  ros::Time last_switch_time_;
   bool supply_ = false;
   bool cover_close_ = true;
   int count_{};
