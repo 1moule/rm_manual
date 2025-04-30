@@ -117,6 +117,7 @@ void ChassisGimbalShooterCoverManual::checkReferee()
     manual_to_referee_pub_data_.det_target = switch_detection_srv_->getTarget();
   ChassisGimbalShooterManual::checkReferee();
 }
+
 void ChassisGimbalShooterCoverManual::checkKeyboard(const rm_msgs::DbusData::ConstPtr& dbus_data)
 {
   ChassisGimbalShooterManual::checkKeyboard(dbus_data);
@@ -193,28 +194,32 @@ void ChassisGimbalShooterCoverManual::rightSwitchUpRise()
 
 void ChassisGimbalShooterCoverManual::ePress()
 {
-  switch_buff_srv_->switchTargetType();
-  switch_detection_srv_->switchTargetType();
-  switch_buff_type_srv_->setTargetType(switch_buff_srv_->getTarget());
-  switch_exposure_srv_->switchTargetType();
+  switch_buff_srv_->setTargetType(rm_msgs::StatusChangeRequest::SMALL_BUFF);
+  switch_detection_srv_->setTargetType(rm_msgs::StatusChangeRequest::SMALL_BUFF);
+  switch_buff_type_srv_->setTargetType(rm_msgs::StatusChangeRequest::SMALL_BUFF);
+  switch_exposure_srv_->setTargetType(rm_msgs::StatusChangeRequest::SMALL_BUFF);
   switch_buff_srv_->callService();
   switch_detection_srv_->callService();
   switch_buff_type_srv_->callService();
   switch_exposure_srv_->callService();
   if (is_gyro_)
-  {
-    if (switch_buff_srv_->getTarget() != rm_msgs::StatusChangeRequest::ARMOR)
-      changeGyroSpeedMode(LOW);
-    else
-      changeGyroSpeedMode(NORMAL);
-  }
+    changeGyroSpeedMode(LOW);
   last_shoot_freq_ = shooter_cmd_sender_->getShootFrequency();
   shooter_cmd_sender_->setShootFrequency(rm_common::HeatLimit::MINIMAL);
 }
 
 void ChassisGimbalShooterCoverManual::eRelease()
 {
-  ChassisGimbalShooterManual::eRelease();
+  switch_buff_srv_->setTargetType(rm_msgs::StatusChangeRequest::ARMOR);
+  switch_detection_srv_->setTargetType(rm_msgs::StatusChangeRequest::ARMOR);
+  switch_buff_type_srv_->setTargetType(rm_msgs::StatusChangeRequest::ARMOR);
+  switch_exposure_srv_->setTargetType(rm_msgs::StatusChangeRequest::ARMOR);
+  switch_buff_srv_->callService();
+  switch_detection_srv_->callService();
+  switch_buff_type_srv_->callService();
+  switch_exposure_srv_->callService();
+  if (is_gyro_)
+    changeGyroSpeedMode(NORMAL);
   shooter_cmd_sender_->setShootFrequency(last_shoot_freq_);
 }
 
