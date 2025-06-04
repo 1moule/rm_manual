@@ -37,7 +37,7 @@
 #include <rm_msgs/ManualToReferee.h>
 #include <rm_msgs/ShootData.h>
 #include <rm_msgs/PowerManagementSampleAndStatusData.h>
-#include "rm_manual/input_event.h"
+#include "rm_manual/core/keyboard.h"
 
 namespace rm_manual
 {
