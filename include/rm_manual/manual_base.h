@@ -56,7 +56,6 @@ public:
 
 protected:
   virtual void checkReferee();
-  virtual void checkKeyboard(const rm_msgs::DbusData::ConstPtr& data){};
   virtual void updateRc(const rm_msgs::DbusData::ConstPtr& dbus_data);
   virtual void updatePc(const rm_msgs::DbusData::ConstPtr& dbus_data);
   virtual void sendCommand(const ros::Time& time) = 0;
@@ -179,6 +178,8 @@ protected:
   InputEvent chassis_power_on_event_, gimbal_power_on_event_, shooter_power_on_event_;
   ros::Time chassis_actuator_last_get_stamp_, gimbal_actuator_last_get_stamp_, shooter_actuator_last_get_stamp_;
   std::vector<std::string> chassis_mount_motor_, gimbal_mount_motor_, shooter_mount_motor_;
+
+  KeyBoard* keyboard_;
 };
 
 }  // namespace rm_manual

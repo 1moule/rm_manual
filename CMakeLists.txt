@@ -23,7 +23,7 @@ find_package(catkin REQUIRED
         std_msgs
         actionlib
         nav_msgs
-        )
+)
 
 ## Find system libraries
 #find_package(Eigen3 REQUIRED)
@@ -71,12 +71,12 @@ add_executable(${PROJECT_NAME} ${ALL_SOURCES})
 ## Add dependencies to exported targets, like ROS msgs or srvs
 add_dependencies(${PROJECT_NAME}
         ${catkin_EXPORTED_TARGETS}
-        )
+)
 
 ## Specify libraries to link executable targets against
 target_link_libraries(${PROJECT_NAME}
         ${catkin_LIBRARIES}
-        )
+)
 
 #############
 ## Install ##

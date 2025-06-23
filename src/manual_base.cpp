@@ -10,6 +10,9 @@ ManualBase::ManualBase(ros::NodeHandle& nh, ros::NodeHandle& nh_referee)
 {
   std::string dbus_topic_;
   dbus_topic_ = getParam(nh, "dbus_topic", std::string("/rm_ecat_hw/dbus"));
+
+  keyboard_ = new KeyBoard();
+
   // sub
   ecat_bus_state_sub_ =
       nh.subscribe<rm_msgs::BusState>("/rm_ecat_hw/bus_state", 10, &ManualBase::ecatBusStateCallback, this);
@@ -200,7 +203,7 @@ void ManualBase::updateRc(const rm_msgs::DbusData::ConstPtr& dbus_data)
 
 void ManualBase::updatePc(const rm_msgs::DbusData::ConstPtr& dbus_data)
 {
-  checkKeyboard(dbus_data);
+  keyboard_->checkKeyboard(dbus_data);
 }
 
 void ManualBase::remoteControlTurnOff()
